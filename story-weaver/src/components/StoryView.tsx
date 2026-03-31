@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { Genre, Choice } from '../types';
+import type { Genre, Choice, Character, RetryState } from '../types';
 import '../styles/StoryView.css';
 
 interface StoryViewProps {
@@ -16,6 +16,14 @@ interface StoryViewProps {
   error: string | null;
   choices: Choice[];
   onReset: () => void;
+  onGenreRemix: (genre: Genre) => void;
+  onUndo: () => void;
+  onExtractCharacters: () => void;
+  onGenerateVisualization: () => void;
+  onExportMarkdown: () => void;
+  retryState: RetryState;
+  characters: Character[];
+  visualizationPrompt: string | null;
 }
 
 export const StoryView: React.FC<StoryViewProps> = ({
@@ -32,8 +40,19 @@ export const StoryView: React.FC<StoryViewProps> = ({
   error,
   choices,
   onReset,
+  onGenreRemix,
+  onUndo,
+  onExtractCharacters,
+  onGenerateVisualization,
+  onExportMarkdown,
+  retryState,
+  characters,
+  visualizationPrompt,
 }) => {
   const [userText, setUserText] = useState('');
+  const [showCharacters, setShowCharacters] = useState(false);
+  const [showVisualization, setShowVisualization] = useState(false);
+  const [selectedRemixGenre, setSelectedRemixGenre] = useState<Genre>(genre);
 
   const handleUserInput = (e: React.FormEvent) => {
     e.preventDefault();
@@ -152,29 +171,135 @@ export const StoryView: React.FC<StoryViewProps> = ({
               rows={3}
             />
             <div className="form-actions">
-              <button
-                type="submit"
-                className="btn btn-primary"
-                disabled={isLoading || !userText.trim()}
-              >
-                📝 Add My Input
-              </button>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={onContinueWithAI}
-                disabled={isLoading}
-              >
-                ✨ Continue with AI
-              </button>
-              <button
-                type="button"
-                className="btn btn-tertiary"
-                onClick={onGiveChoices}
-                disabled={isLoading}
-              >
-                🎲 Give Me Choices
-              </button>
+              {retryState.isRetrying && (
+                <div className="retry-notice">
+                  ⏱️ Rate limited. Retry in {retryState.countdown}s
+                </div>
+              )}
+
+              <div className="bonus-features">
+                <div className="feature-group">
+                  <label htmlFor="remix-genre">🎭 Genre Remix:</label>
+                  <select
+                    id="remix-genre"
+                    value={selectedRemixGenre}
+                    onChange={(e) => setSelectedRemixGenre(e.target.value as Genre)}
+                    disabled={isLoading}
+                  >
+                    <option value="Fantasy">Fantasy</option>
+                    <option value="Sci-Fi">Sci-Fi</option>
+                    <option value="Mystery">Mystery</option>
+                    <option value="Romance">Romance</option>
+                    <option value="Horror">Horror</option>
+                    <option value="Comedy">Comedy</option>
+                  </select>
+                  <button
+                    type="button"
+                    className="btn btn-feature"
+                    onClick={() => onGenreRemix(selectedRemixGenre)}
+                    disabled={isLoading || retryState.isRetrying}
+                    title="Rewrite the last section in a different genre"
+                  >
+                    🔄 Remix
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  className="btn btn-feature"
+                  onClick={onUndo}
+                  disabled={isLoading || retryState.isRetrying}
+                  title="Remove the last AI-generated section"
+                >
+                  ↶ Undo
+                </button>
+
+                <button
+                  type="button"
+                  className="btn btn-feature"
+                  onClick={() => {
+                    onExtractCharacters();
+                    setShowCharacters(!showCharacters);
+                  }}
+                  disabled={isLoading}
+                  title="Extract and display story characters"
+                >
+                  👥 Characters ({characters.length})
+                </button>
+
+                <button
+                  type="button"
+                  className="btn btn-feature"
+                  onClick={() => {
+                    onGenerateVisualization();
+                    setShowVisualization(!showVisualization);
+                  }}
+                  disabled={isLoading}
+                  title="Generate image prompt for visualizing this scene"
+                >
+                  🖼️ Visualize
+                </button>
+
+                <button
+                  type="button"
+                  className="btn btn-feature"
+                  onClick={onExportMarkdown}
+                  disabled={isLoading}
+                  title="Download story as Markdown file"
+                >
+                  💾 Export
+                </button>
+              </div>
+
+              {showCharacters && characters.length > 0 && (
+                <div className="characters-panel">
+                  <h4>📖 Story Characters</h4>
+                  <ul className="character-list">
+                    {characters.map((char, idx) => (
+                      <li key={idx}>
+                        <strong>{char.name}</strong>
+                        <p>{char.description}</p>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {showVisualization && visualizationPrompt && (
+                <div className="visualization-panel">
+                  <h4>🎨 Visualization Prompt</h4>
+                  <p className="visualization-text">{visualizationPrompt}</p>
+                  <p className="visualization-hint">
+                    Use this prompt with DALL-E, Midjourney, or Flux to generate an image.
+                  </p>
+                </div>
+              )}
+
+              <div className="main-buttons">
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={isLoading || !userText.trim() || retryState.isRetrying}
+                >
+                  📝 Add My Input
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={onContinueWithAI}
+                  disabled={isLoading || retryState.isRetrying}
+                >
+                  ✨ Continue with AI
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-tertiary"
+                  onClick={onGiveChoices}
+                  disabled={isLoading || retryState.isRetrying}
+                >
+                  🎲 Give Me Choices
+                </button>
+              </div>
             </div>
           </form>
         )}

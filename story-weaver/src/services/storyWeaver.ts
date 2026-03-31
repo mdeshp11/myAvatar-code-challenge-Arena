@@ -9,26 +9,6 @@ const GENRE_RULES: Record<Genre, string> = {
   Comedy: 'Humor, irony, absurdity. Keep the tone light and entertainment-focused while maintaining story coherence.',
 };
 
-interface GeminiRequest {
-  contents: Array<{
-    role: 'user' | 'model';
-    parts: Array<{ text: string }>;
-  }>;
-  generationConfig: {
-    temperature: number;
-    topK: number;
-    topP: number;
-    maxOutputTokens: number;
-  };
-  safetySettings: Array<{
-    category: string;
-    threshold: string;
-  }>;
-  systemInstruction?: {
-    parts: Array<{ text: string }>;
-  };
-}
-
 export class StoryWeaver {
   private apiKey: string;
   private baseURL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent';
@@ -261,6 +241,98 @@ Continue the story with 1-2 coherent paragraphs (200-400 words) that incorporate
     }
 
     return choices.slice(0, 3); // Ensure max 3 choices
+  }
+
+  async genreRemix(
+    fullStory: string,
+    newGenre: Genre,
+    temperature: number
+  ): Promise<string> {
+    // Extract last few paragraphs (latest section)
+    const paragraphs = fullStory.split('\n\n');
+    const lastTwoParagraphs = paragraphs.slice(-2).join('\n\n');
+
+    const userPrompt = `Here is the full story so far (for context):
+---
+${fullStory}
+---
+
+Now rewrite ONLY the last section (below) in the style of ${newGenre} genre, while keeping the plot and character actions identical:
+
+---
+${lastTwoParagraphs}
+---
+
+Rewrite this section maintaining:
+- All character names and actions
+- The plot progression
+- But with ${newGenre} genre conventions, tone, and style
+- Genre Rules for ${newGenre}: ${GENRE_RULES[newGenre]}`;
+
+    const response = await this.callGeminiAPI(userPrompt, this.getSystemPrompt(newGenre), temperature);
+    return this.extractTextFromResponse(response);
+  }
+
+  async extractCharacters(fullStory: string): Promise<Array<{ name: string; description: string }>> {
+    const userPrompt = `Analyze this story and extract all named characters with brief descriptions:
+
+---
+${fullStory}
+---
+
+Format your response as:
+1. [Character Name]: [Brief description of their role/personality in 1 sentence]
+2. [Character Name]: [Brief description]
+
+Only list actual named characters, not generic descriptions like "the guard" unless they're repeatedly mentioned as important.`;
+
+    const systemPrompt = 'You are a precise literary analysis assistant. Extract and describe only named characters.';
+    const response = await this.callGeminiAPI(userPrompt, systemPrompt, 0.3);
+    const text = this.extractTextFromResponse(response);
+
+    const characters: Array<{ name: string; description: string }> = [];
+    const lines = text.split('\n').filter(line => line.trim());
+
+    for (const line of lines) {
+      const match = line.match(/^\d+\.\s+([^:]+):\s+(.+)$/);
+      if (match) {
+        characters.push({
+          name: match[1].trim(),
+          description: match[2].trim(),
+        });
+      }
+    }
+
+    return characters;
+  }
+
+  async generateVisualizationPrompt(latestParagraph: string): Promise<string> {
+    const userPrompt = `Create a vivid, concise image generation prompt (for DALL-E, Midjourney, or Flux) based on this story excerpt:
+
+---
+${latestParagraph}
+---
+
+The prompt should be:
+- 1-2 sentences maximum
+- Descriptive and visual
+- Include key visual elements, characters, and setting
+- In natural language (not a list)
+- Ready to use directly in an image AI
+
+Format: Just output the prompt, nothing else.`;
+
+    const systemPrompt = 'You are an expert at writing image generation prompts. Be concise and visual.';
+    const response = await this.callGeminiAPI(userPrompt, systemPrompt, 0.6);
+    return this.extractTextFromResponse(response).trim();
+  }
+
+  public undoLastTurn(): void {
+    // Remove last user + model pair from conversation history
+    if (this.conversationHistory.length >= 2) {
+      this.conversationHistory.pop(); // Remove model response
+      this.conversationHistory.pop(); // Remove user message
+    }
   }
 
   public reset(): void {

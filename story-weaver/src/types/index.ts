@@ -9,6 +9,9 @@ export interface StoryState {
   temperature: number;
   isLoading: boolean;
   error: string | null;
+  undoHistory: string[];
+  characters: Character[];
+  visualizationPrompt: string | null;
 }
 
 export interface APIError {
@@ -19,4 +22,16 @@ export interface APIError {
 export interface Choice {
   id: number;
   text: string;
+}
+
+export interface Character {
+  name: string;
+  description: string;
+  firstMentioned: number; // paragraph index
+}
+
+export interface RetryState {
+  isRetrying: boolean;
+  countdown: number;
+  nextRetryTime: number;
 }
