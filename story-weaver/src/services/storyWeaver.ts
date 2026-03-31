@@ -328,10 +328,9 @@ Format: Just output the prompt, nothing else.`;
   }
 
   public undoLastTurn(): void {
-    // Remove last user + model pair from conversation history
     if (this.conversationHistory.length >= 2) {
-      this.conversationHistory.pop(); // Remove model response
-      this.conversationHistory.pop(); // Remove user message
+      this.conversationHistory.pop();
+      this.conversationHistory.pop();
     }
   }
 
