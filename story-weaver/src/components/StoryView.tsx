@@ -54,12 +54,41 @@ export const StoryView: React.FC<StoryViewProps> = ({
   const [showVisualization, setShowVisualization] = useState(false);
   const [selectedRemixGenre, setSelectedRemixGenre] = useState<Genre>(genre);
 
-  const handleUserInput = (e: React.FormEvent) => {
+    const handleUserInput = (e: React.FormEvent) => {
     e.preventDefault();
     if (userText.trim()) {
       onUserInput(userText);
       setUserText('');
     }
+  };
+
+  const formatStoryText = (text: string): string | (string | React.ReactNode)[] => {
+    // Parse markdown-style formatting and return JSX elements
+    const parts: (string | React.ReactNode)[] = [];
+    let lastIndex = 0;
+    const boldRegex = /\*([^*]+)\*/g;
+    let match;
+
+    while ((match = boldRegex.exec(text)) !== null) {
+      // Add text before the bold section
+      if (match.index > lastIndex) {
+        parts.push(text.substring(lastIndex, match.index));
+      }
+      // Add bold element
+      parts.push(
+        <strong key={`bold-${match.index}`} className="bold-text">
+          {match[1]}
+        </strong>
+      );
+      lastIndex = boldRegex.lastIndex;
+    }
+
+    // Add remaining text
+    if (lastIndex < text.length) {
+      parts.push(text.substring(lastIndex));
+    }
+
+    return parts.length > 0 ? parts : text;
   };
 
   const getGenreIcon = (g: Genre): string => {
@@ -105,7 +134,11 @@ export const StoryView: React.FC<StoryViewProps> = ({
 
       <div className="story-content">
         <div className="story-text">
-          {fullStory && <div className="story-body">{fullStory}</div>}
+          {fullStory && (
+            <div className="story-body">
+              {formatStoryText(fullStory)}
+            </div>
+          )}
         </div>
 
         {isLoading && (
