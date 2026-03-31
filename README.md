@@ -1,1 +1,0 @@
-# myAvatar-code-challenge-Arena
