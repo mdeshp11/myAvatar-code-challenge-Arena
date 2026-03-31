@@ -31,7 +31,7 @@ interface GeminiRequest {
 
 export class StoryWeaver {
   private apiKey: string;
-  private baseURL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+  private baseURL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent';
   private conversationHistory: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = [];
 
   constructor(apiKey: string) {
@@ -175,46 +175,30 @@ Continue the story with 1-2 coherent paragraphs (200-400 words) that incorporate
   }
 
   private async callGeminiAPI(
-    userMessage: string,
-    systemPrompt: string,
-    temperature: number = 0.7
-  ): Promise<GeminiRequest> {
-    const payload: GeminiRequest = {
-      contents: [
-        ...this.conversationHistory,
-        {
-          role: 'user',
-          parts: [{ text: userMessage }],
-        },
-      ],
-      generationConfig: {
-        temperature: Math.max(0.1, Math.min(1, temperature)), // Clamp 0.1-1.0
-        topK: 40,
-        topP: 0.95,
-        maxOutputTokens: 1024,
+  userMessage: string,
+  systemPrompt: string,
+  temperature: number = 0.7
+): Promise<any> {
+  const payload = {
+    system_instruction: {
+      parts: [{
+        text: systemPrompt
+      }]
+    },
+    contents: [
+      ...this.conversationHistory,
+      {
+        role: 'user',
+        parts: [{ text: userMessage }],
       },
-      safetySettings: [
-        {
-          category: 'HARM_CATEGORY_HARASSMENT',
-          threshold: 'BLOCK_MEDIUM_AND_ABOVE',
-        },
-        {
-          category: 'HARM_CATEGORY_HATE_SPEECH',
-          threshold: 'BLOCK_MEDIUM_AND_ABOVE',
-        },
-        {
-          category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
-          threshold: 'BLOCK_MEDIUM_AND_ABOVE',
-        },
-        {
-          category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
-          threshold: 'BLOCK_MEDIUM_AND_ABOVE',
-        },
-      ],
-      systemInstruction: {
-        parts: [{ text: systemPrompt }],
-      },
-    };
+    ],
+    generation_config: {
+      temperature: Math.max(0.1, Math.min(1, temperature)),
+      top_k: 40,
+      top_p: 0.95,
+      max_output_tokens: 1024,
+    },
+  };
 
     try {
       const response = await fetch(`${this.baseURL}?key=${this.apiKey}`, {
@@ -226,9 +210,10 @@ Continue the story with 1-2 coherent paragraphs (200-400 words) that incorporate
       });
 
       if (!response.ok) {
-        const error = await response.json();
+        const errorData = await response.json();
+        console.error('API Error:', errorData);
         throw new Error(
-          error.error?.message || `API Error: ${response.statusText}`
+          errorData.error?.message || `API Error: ${response.status} ${response.statusText}`
         );
       }
 
